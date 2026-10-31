@@ -338,7 +338,7 @@ S2.add(new T.HemisphereLight(0x9bb8ff,0x1a1c28,.7));
 const f=new T.DirectionalLight(0x6c9cff,.55);f.position.set(-26,18,10);S2.add(f);const r=new T.DirectionalLight(0xa080ff,.6);r.position.set(-8,22,-34);S2.add(r);
 [[0xffb060,0,22,0,1.1],[0x4aa8ff,-16,8,14,1.0],[0x4aa8ff,18,8,-10,.8]].forEach(([c,x,y,z,i])=>{const l=new T.PointLight(c,i,60,1.4);l.position.set(x,y,z);S2.add(l)})}
 // piso espelhado do estúdio
-{const fl=new T.Mesh(new T.PlaneGeometry(520,520),new T.MeshStandardMaterial({color:0xaab4d0,map:floorTex,roughness:.45,metalness:.4}));fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;S2.add(fl)}
+{const fl=new T.Mesh(new T.PlaneGeometry(520,520),new T.MeshStandardMaterial({color:0xaab4d0,map:floorTex,roughness:.45,metalness:.4}));fl.rotation.x=-Math.PI/2;fl.receiveShadow=true;fl.userData.keep=1;S2.add(fl)}
 
 // ---------- motor completo: câmara, bocal em sino, gimbal, atuadores e turbobomba ----------
 // origem = plano de montagem (topo do gimbal); o bocal desce em -y. re = raio de saída, Ln = comprimento total.
@@ -354,6 +354,8 @@ if(vac){const ext=[];for(let i=0;i<=8;i++){const t=1-.38*(i/8);ext.push([rr(t),y
 // anéis do sistema de resfriamento regenerativo
 [.18,.38,.58,.78,.96].forEach(t=>{if(t<=cut+.02)motor.add(to(rr(t)+.012*re,.02*re,RM.cd,0,yT-t*Lb,0,32))});
 motor.add(to(rt+.01*re,.03*re,RM.cd,0,yT,0,24));
+// fuligem escura perto da saída do bocal e linhas de solda
+motor.add(to(rr(.97)+.004*re,.045*re,RM.rb,0,yT-.97*Lb,0,32),to(rr(.9)+.004*re,.02*re,RM.gp,0,yT-.9*Lb,0,32));
 // câmara: cabeça de injeção, flange, costuras
 motor.add(cy(rc*1.14,rc*1.14,.12*re,RM.gp,0,.0,0,24),to(rc*1.05,.025*re,RM.st,0,yc-.02*re,0,24),to(rc*1.02,.02*re,RM.st,0,yc-hc*.55,0,24),to(rc*1.02,.02*re,RM.st,0,yc-hc*.9,0,24));
 // gimbal e atuadores hidráulicos
@@ -384,15 +386,16 @@ for(let i=0;i<(nb||3);i++){const y=dh+hc*(i+.5)/(nb||3),rg=new T.Mesh(new T.Ring
 g.add(li(V3(rt*.3,L*.96,0),V3(rt*.3,L*.12,0),.012*rt,RM.st,6));
 // volume de propelente (aprox. 72% do tanque)
 const fh=dh+hc*.72;for(let i=0;i<=N;i++){const a=i/N*Math.PI/2;fp.push([rt*.93*Math.sin(a),dh*.93*(1-Math.cos(a))])}fp.push([rt*.93,fh]);fp.push([0,fh]);
-g.add(la(fp,fillMat,40));
-g.userData.out=V3(0,0,0);return g}
+const fillM=la(fp,fillMat,40);g.add(fillM);
+g.userData.out=V3(0,0,0);g.userData.fill=fillM;return g}
 
 // ---------- foguete lançador configurável ----------
 const HS=[7,5,3.6],RR={p:.7,m:1,g:1.3},ENG={1:[[0,0]],3:[[.5,0],[-.25,.43],[-.25,-.43]],5:[[0,0],[.55,.55],[-.55,.55],[.55,-.55],[-.55,-.55]]},BASE=1.7;
 function finish(G){G.traverse(q=>{if(q.isMesh){q.material=q.material.clone();q.userData.m0={o:q.material.opacity,t:q.material.transparent,w:q.material.depthWrite};q.userData.f=1;q.userData.ft=1;q.castShadow=!q.material.transparent;q.receiveShadow=true}})}
 const polar=(a,rad)=>[rad*Math.cos(a),rad*Math.sin(a)];
+const FLM=new T.MeshBasicMaterial({color:0xcfe8ff,transparent:true,opacity:.8,blending:T.AdditiveBlending,depthWrite:false,side:DS});
 function buildRocket(c){
-const r=RR[c.size],n=c.stages,G=new T.Group(),pm={},anc={},GL=[],st=[],bs=[],ni=c.inst||{},simple=!!c.simple,flow={ox:[],fu:[]},engs=[],legs=[],fins=[],Dg=2.4*r;
+const r=RR[c.size],n=c.stages,G=new T.Group(),pm={},anc={},GL=[],st=[],bs=[],ni=c.inst||{},simple=!!c.simple,flow={ox:[],fu:[]},engs=[],legs=[],fins=[],Dg=2.4*r,A={fillOx:[],fillFu:[],he:[],nav:[],rcs:[]};
 const tag=(o,id,skin)=>{o.traverse(q=>{if(q.isMesh){q.userData.part=id;if(skin)q.userData.skin=1;(pm[id]=pm[id]||[]).push(q)}});return o};
 const an=(id,g,x,y,z)=>{if(!anc[id]){const a=new T.Object3D();a.position.set(x,y,z);g.add(a);anc[id]=a}};
 const pgrp=(sg,s,ex,cyv,dl)=>{const g=new T.Group();g.userData={ex,cy:cyv,dl:dl||0,s,p0:V3(0,0,0),rest:V3(0,sg.userData.base+cyv,0),sg};sg.add(g);GL.push(g);return g};
@@ -427,11 +430,11 @@ pos.forEach(([ex,ez],i)=>{const e=buildEngine(reE,!!s,Ln),px=ex*rs*.85,pz=ez*rs*
 E1.push(V3(px+e.inlet.x,ym+e.inlet.y,pz));E2.push(V3(px+e.inlet2.x,ym+e.inlet2.y,pz));
 if(i==0){an('motores',gEn,px,ym-Ln*.75,pz);an('bomba',gEn,px+(.34+.62)*reE,ym-.32*reE,pz)}});
 // ---- tanques ----
-const gTf=pgrp(sg,s,V3(0,(yb+Lf/2-h/2)*.45,0),yb+Lf/2);const tf=buildTank(rt,Lf,.3,RM.fu,RM.fl,3);tf.position.y=yb;gTf.add(tag(tf,'tanque_comb'));an('tanque_comb',gTf,0,yb+Lf*.5,0);
-const gTx=pgrp(sg,s,V3(0,(yOxB+Lo/2-h/2)*.45,0),yOxB+Lo/2);const tx=buildTank(rt,Lo,.3,RM.lx,RM.ox,3);tx.position.y=yOxB;gTx.add(tag(tx,'tanque_ox'));an('tanque_ox',gTx,0,yOxB+Lo*.5,0);
+const gTf=pgrp(sg,s,V3(0,(yb+Lf/2-h/2)*.45,0),yb+Lf/2);const tf=buildTank(rt,Lf,.3,RM.fu,RM.fl,3);tf.position.y=yb;gTf.add(tag(tf,'tanque_comb'));A.fillFu.push(tf.userData.fill);an('tanque_comb',gTf,0,yb+Lf*.5,0);
+const gTx=pgrp(sg,s,V3(0,(yOxB+Lo/2-h/2)*.45,0),yOxB+Lo/2);const tx=buildTank(rt,Lo,.3,RM.lx,RM.ox,3);tx.position.y=yOxB;gTx.add(tag(tx,'tanque_ox'));A.fillOx.push(tx.userData.fill);an('tanque_ox',gTx,0,yOxB+Lo*.5,0);
 // ---- pressurização (esferas de hélio) ----
 const gHe=pgrp(sg,s,V3(0,(yb+Lf+gi/2-h/2)*.45+.3*rs,0),yb+Lf+gi/2),yHe=yb+Lf+gi/2;
-rN(3,a=>{const[x,z]=polar(a,.55*rs);gHe.add(tag(sp(.17*rs,RM.he,x,yHe,z,18),'pressurizacao'),tag(to(.172*rs,.012*rs,RM.te,x,yHe,z,20),'pressurizacao'),tag(li(V3(x,yHe+.12*rs,z),V3(x*.3,yHe+.17*rs,z*.3),.012*rs,RM.st,6),'pressurizacao'),tag(cy(.03*rs,.03*rs,.06*rs,RM.rd,x*.7,yHe+.19*rs,z*.7,10),'pressurizacao'))},Math.PI/3);
+rN(3,a=>{const[x,z]=polar(a,.55*rs),hs=sp(.17*rs,RM.he,x,yHe,z,18);A.he.push(hs);gHe.add(tag(hs,'pressurizacao'),tag(to(.172*rs,.012*rs,RM.te,x,yHe,z,20),'pressurizacao'),tag(li(V3(x,yHe+.12*rs,z),V3(x*.3,yHe+.17*rs,z*.3),.012*rs,RM.st,6),'pressurizacao'),tag(cy(.03*rs,.03*rs,.06*rs,RM.rd,x*.7,yHe+.19*rs,z*.7,10),'pressurizacao'))},Math.PI/3);
 gHe.add(tag(to(.3*rs*.3,.015*rs,RM.st,0,yHe+.17*rs,0,12),'pressurizacao'),tag(to(rt,.03*rs,RM.st,0,yHe,0,48),'pressurizacao'));an('pressurizacao',gHe,.55*rs*Math.cos(Math.PI/3),yHe,.55*rs*Math.sin(Math.PI/3));
 // ---- tubulações e válvulas ----
 const gPl=pgrp(sg,s,V3(.55*rs,0,0),yb+tt/2),xl=rs*.955,yL=ym+.3*rs;
@@ -452,7 +455,7 @@ gSk.add(tag(cy(rs*.96,rs*.96,.05*rs,RM.gq,0,yD,0,40),'estrutura'));{const rg=new
 rN(4,a=>{const[x,z]=polar(a,.55*rs),b=new T.Group();b.position.set(x,yB+.19*rs,z);b.rotation.y=-a;b.add(bo(.24*rs,.38*rs,.32*rs,RM.gp,0,0,0),bo(.02*rs,.3*rs,.26*rs,RM.gq,.13*rs,0,0));
 [RM.lg,RM.lg,RM.la].forEach((m,i)=>b.add(bo(.012*rs,.025*rs,.03*rs,m,.145*rs,.1*rs-i*.05*rs,.07*rs)));b.add(cy(.02*rs,.02*rs,.05*rs,RM.st,.15*rs,-.1*rs,-.08*rs,8),cy(.02*rs,.02*rs,.05*rs,RM.st,.15*rs,-.1*rs,0,8));gCo.add(tag(b,'computador'))},0);
 an('computador',gCo,.55*rs,yB+.19*rs,0);
-gNa.add(tag(bo(.3*rs,.3*rs,.3*rs,RM.st,0,yB+.15*rs,0),'navegacao'),tag(to(.24*rs,.012*rs,RM.cu,0,yB+.15*rs,0,24),'navegacao'));{const r2=to(.24*rs,.012*rs,RM.cu,0,yB+.15*rs,0,24);r2.rotation.x=0;gNa.add(tag(r2,'navegacao'));const r3=to(.24*rs,.012*rs,RM.cu,0,yB+.15*rs,0,24);r3.rotation.z=Math.PI/2;gNa.add(tag(r3,'navegacao'))}
+{const r1=to(.24*rs,.012*rs,RM.cu,0,yB+.15*rs,0,24);A.nav.push(r1);gNa.add(tag(bo(.3*rs,.3*rs,.3*rs,RM.st,0,yB+.15*rs,0),'navegacao'),tag(r1,'navegacao'))}{const r2=to(.24*rs,.012*rs,RM.cu,0,yB+.15*rs,0,24);r2.rotation.x=0;A.nav.push(r2);gNa.add(tag(r2,'navegacao'));const r3=to(.24*rs,.012*rs,RM.cu,0,yB+.15*rs,0,24);r3.rotation.z=Math.PI/2;A.nav.push(r3);gNa.add(tag(r3,'navegacao'))}
 {const[gx,gz]=polar(.8,.9*rs);gNa.add(tag(cy(.12*rs,.12*rs,.05*rs,RM.gp,gx,h-.2*rs,gz,18),'navegacao'),tag(cy(.03*rs,.03*rs,.12*rs,RM.st,gx*.97,h-.28*rs,gz*.97,8),'navegacao'))}an('navegacao',gNa,0,yB+.15*rs,0);
 rN(2,a=>{const[x,z]=polar(a,.5*rs),b=new T.Group();b.position.set(x,yB+.15*rs,z);b.rotation.y=-a;b.add(bo(.3*rs,.3*rs,.3*rs,RM.ye,0,0,0),bo(.31*rs,.05*rs,.31*rs,RM.gp,0,.08*rs,0),bo(.31*rs,.05*rs,.31*rs,RM.gp,0,-.08*rs,0));gEl.add(tag(b,'eletrica'))},Math.PI/4);
 gEl.add(tag(bo(.4*rs,.14*rs,.3*rs,RM.ac,-.2*rs,yB+.07*rs,.5*rs),'eletrica'),tag(bo(.3*rs,.1*rs,.3*rs,RM.gp,.15*rs,yB+.05*rs,-.5*rs),'eletrica'));
@@ -460,7 +463,7 @@ rN(6,a=>{const[x,z]=polar(a,.36*rs);gEl.add(tag(li(V3(x,yB+.02*rs,z),V3(x*1.3,yB
 [.3,3.45].forEach((a,i)=>{const[x,z]=polar(a,rs*1.01),b=bo(.04*rs,.45*rs,.28*rs,RM.st,x,h-.32*rs,z);b.rotation.y=-a;gEl.add(tag(b,'eletrica'));gEl.add(tag(bo(.045*rs,.06*rs,.34*rs,RM.gp,x,h-.32*rs-.25*rs,z),'eletrica').rotateY(-a))});
 {const[x,z]=polar(5.2,rs*1.008),b=bo(.03*rs,.3*rs,.42*rs,RM.gq,x,h-.55*rs,z);b.rotation.y=-5.2;gEl.add(tag(b,'eletrica'))}an('eletrica',gEl,.5*rs*Math.cos(Math.PI/4),yB+.15*rs,.5*rs*Math.sin(Math.PI/4));
 [0,2.1,4.2].forEach(a=>{const m=new T.Mesh(new T.CylinderGeometry(.8*rs,.8*rs,.56*rs,12,1,true,a,1.05),RM.gd);m.position.y=yB+.28*rs;gTh.add(tag(m,'termico'))});gTh.add(tag(bo(.5*rs,.02*rs,.4*rs,RM.gd,.1*rs,yB+.01*rs,.0),'termico'));an('termico',gTh,.8*rs*Math.sin(.5),yB+.28*rs,.8*rs*Math.cos(.5));
-rN(4,a=>{const[x,z]=polar(a,rs*1.0),b=new T.Group();b.position.set(x,h-.2*rs,z);b.rotation.y=-a;b.add(bo(.16*rs,.26*rs,.2*rs,RM.gp,.03*rs,0,0));[-1,1].forEach(d=>{const nz=cy(.05*rs,.018*rs,.12*rs,RM.ni,.14*rs,d*.07*rs,0,10);nz.rotation.z=-Math.PI/2;b.add(nz)});const nz2=cy(.04*rs,.015*rs,.1*rs,RM.ni,0,0,.13*rs,10);nz2.rotation.x=Math.PI/2;b.add(nz2);gRc.add(tag(b,'rcs'))},Math.PI/4);
+rN(4,a=>{const[x,z]=polar(a,rs*1.0),b=new T.Group();b.position.set(x,h-.2*rs,z);b.rotation.y=-a;b.add(bo(.16*rs,.26*rs,.2*rs,RM.gp,.03*rs,0,0));[-1,1].forEach(d=>{const nz=cy(.05*rs,.018*rs,.12*rs,RM.ni,.14*rs,d*.07*rs,0,10);nz.rotation.z=-Math.PI/2;b.add(nz);const fl=new T.Mesh(new T.ConeGeometry(.045*rs,.3*rs,8,1,true),FLM);fl.rotation.z=-Math.PI/2;fl.position.set(.35*rs,d*.07*rs,0);fl.visible=false;b.add(fl);A.rcs.push(fl)});const nz2=cy(.04*rs,.015*rs,.1*rs,RM.ni,0,0,.13*rs,10);nz2.rotation.x=Math.PI/2;b.add(nz2);gRc.add(tag(b,'rcs'))},Math.PI/4);
 gRc.add(tag(sp(.12*rs,RM.te,.3*rs,yB+.45*rs,-.3*rs,14),'rcs'),tag(to(.123*rs,.01*rs,RM.st,.3*rs,yB+.45*rs,-.3*rs,14),'rcs'));
 const[rx,rz]=polar(Math.PI/4,rs);an('rcs',gRc,rx,h-.2*rs,rz)}
 // ---- aletas de grade e pernas de pouso (primeiro estágio reutilizável) ----
@@ -479,7 +482,7 @@ y+=h}
 const rl=r*(1-.1*(n-1)),top=buildTop(c,{G,y,rs:rl,r,tag,an,GL,Dg,n,ni,simple,pm});
 G.userData.top=top;
 finish(G);
-return{G,st,bs,n,r,rl,H:y+top.Hf,Hx:y+top.Hf+(n-1)*Dg+4.2*rl,pm,anc,gl:GL,fair:top.fair,setOpen:top.setOpen,engs,legs,fins,flow,Dg,kind:'lan',Hf:top.Hf,yTop:y}}
+return{G,st,bs,n,r,rl,H:y+top.Hf,Hx:y+top.Hf+(n-1)*Dg+4.2*rl,pm,anc,gl:GL,fair:top.fair,setOpen:top.setOpen,engs,legs,fins,flow,Dg,kind:'lan',Hf:top.Hf,yTop:y,anim:A,top}}
 
 // ---------- topo: adaptador, carga útil e coifa de duas metades ----------
 const sm01=t=>{t=Math.min(1,Math.max(0,t));return t*t*(3-2*t)};
@@ -528,7 +531,7 @@ rN(6,a=>{const[x,z]=polar(a,.5*rs);gAd.add(tag(cy(.028*rs,.028*rs,.14*rs,RM.st,x
 rN(12,a=>{const[x0,z0]=polar(a,.88*rs),[x1,z1]=polar(a,.54*rs);gAd.add(tag(li(V3(x0,.03*rs,z0),V3(x1,Ha-.02*rs,z1),.012*rs,RM.st,6),'adaptador'))});
 an('adaptador',gAd,.7*rs,Ha*.5,.0);
 // carga útil
-const gPy=new T.Group();gPy.position.y=y+Ha;gPy.userData={ex:V3(0,off+3.2*rs,0),p0:V3(0,y+Ha,0),cy:.7*rs,rest:V3(0,y+Ha+.7*rs,0),sg:null,dl:.15};G.add(gPy);GL.push(gPy);
+const gPy=new T.Group();gPy.position.y=y+Ha;gPy.userData={ex:V3(0,off+3.2*rs,0),p0:V3(0,y+Ha,0),cy:.7*rs,rest:V3(0,y+Ha+.7*rs,0),sg:null,dl:.15,pay:1};G.add(gPy);GL.push(gPy);
 const pl=buildPayload(c.payload,u,ni,tag);gPy.add(pl.g);an('carga',gPy,.0,.55*rs,.0);
 // coifa em duas metades articuladas (acessam a carga útil quando abre)
 const gF=new T.Group();gF.position.y=y;gF.userData={ex:V3(0,off+4.0*rs,0),p0:V3(0,y,0),cy:Hf/2,rest:V3(0,y+Hf/2,0),sg:null,dl:.2};G.add(gF);GL.push(gF);
@@ -540,7 +543,7 @@ piv.add(tag(o,'coifa',1),tag(ln,'coifa',1),tag(cy(.04*rs,.04*rs,.4*rs,RM.st,0,.1
 [-1,1].forEach(sz=>{for(let i=0;i<pts.length-4;i+=4){const A=V3(dx,pts[i].y,sz*pts[i].x),B=V3(dx,pts[i+4].y,sz*pts[i+4].x);piv.add(tag(li(A,B,.022*rs,RM.gp,6),'coifa'))}})};
 half(Math.PI,pL,rs);half(0,pR,-rs);gF.add(pL,pR);
 an('coifa',pR,.78*rs-rs,Hf*.4,0);
-const setOpen=k=>{const a=1.15*sm01(k/.6);pL.rotation.z=a;pR.rotation.z=-a;pl.set(sm01((k-.5)/.5))};
+const setOpen=(k,x)=>{const a=1.15*sm01(k/.6);pL.rotation.z=a;pR.rotation.z=-a;pl.set(Math.max(sm01((k-.5)/.5),x||0))};
 return{Hf,fair:{pL,pR,g:gF},setOpen,payload:pl}}
 
 // ---------- espaçonave tripulada e cápsula (interiores próprios) ----------
@@ -549,7 +552,7 @@ const G=new T.Group(),pm={},anc={},GL=[],trip=k=='trip',oy=trip?3.2:0;
 const tag=(o,id,skin)=>{o.traverse(q=>{if(q.isMesh){q.userData.part=id;if(skin)q.userData.skin=1;(pm[id]=pm[id]||[]).push(q)}});return o};
 const an=(id,g,x,y,z)=>{if(!anc[id]){const a=new T.Object3D();a.position.set(x,y,z);g.add(a);anc[id]=a}};
 const vg=(ex,cyv,dl)=>{const g=new T.Group();g.userData={ex,cy:cyv,dl:dl||0,p0:V3(0,0,0),rest:V3(0,cyv,0),sg:null};G.add(g);GL.push(g);return g};
-const fns=[];
+const fns=[],A={screens:[]};
 // casca pressurizada
 const lp=[[0,0],[1.6,0],[1.65,.12],[1.15,2.3],[.62,3.1],[.55,3.5],[0,3.5]],rAt=y=>y<.12?1.6+y*.4:1.65-(y-.12)/2.18*.5;
 const gSh=vg(V3(0,0,0),oy+1.7);gSh.add(tag(la(lp,skinMat(1.4,3.5),40,0,oy,0),'cab',1),tag(to(1.1,.04,RM.gq,0,oy+2.4,0,32),'cab'));
@@ -564,7 +567,7 @@ const seat=(x,z)=>{const s=new T.Group();s.position.set(x,oy+.3,z);s.add(bo(.6,.
 const rack=new T.Group();rack.position.set(0,oy+.3,-1.12);rack.add(bo(1.1,.3,.3,RM.gq,0,.15,0),cy(.14,.14,.55,RM.bl,-.35,.5,0,16),cy(.12,.12,.5,RM.te,0,.5,0,16),cy(.12,.12,.5,RM.rd,.35,.5,0,16),cy(.02,.02,.5,RM.st,-.15,.55,0,6));gIn.add(tag(rack,'cab'));
 an('cab',gIn,.62,oy+.6,.75);
 // painéis e computadores (telas emissivas)
-const gCt=vg(V3(0,.9,-.6),oy+1.5);const scr=(w,h,x,y,z,txt)=>{const m=lb2(txt,w,h,'#06203a','#6cf0ff',34);m.position.set(x,y,z);return m};
+const gCt=vg(V3(0,.9,-.6),oy+1.5);const scr=(w,h,x,y,z,txt)=>{const m=lb2(txt,w,h,'#06203a','#6cf0ff',34);m.position.set(x,y,z);m.userData.txt=txt;A.screens.push(m);return m};
 gCt.add(tag(bo(1.5,.5,.1,RM.gp,0,oy+1.5,-1.0),'ctl'),tag(bo(1.3,.12,.35,RM.gq,0,oy+1.18,-.9),'ctl'),tag(scr(.62,.34,-.4,oy+1.5,-.94,'NAV'),'ctl'),tag(scr(.62,.34,.4,oy+1.5,-.94,'SISTEMAS'),'ctl'),tag(scr(.3,.3,0,oy+1.52,-.94,'AUTO'),'ctl'));
 [-.4,.4].forEach(x=>{gCt.add(tag(cy(.03,.03,.22,RM.st,x,oy+1.3,-.78,8),'ctl'),tag(sp(.06,RM.rd,x,oy+1.43,-.78,10),'ctl'))});rN(5,(a,i)=>gCt.add(tag(bo(.07,.04,.04,[RM.lg,RM.la,RM.lr,RM.lg,RM.la][i],-.3+i*.15,oy+1.2,-.76),'ctl')),0);
 an('ctl',gCt,0,oy+1.5,-.95);
@@ -592,7 +595,7 @@ gAc.add(tag(cy(.36,.36,.03,RM.gl,0,oy+4.06,0,24),'aco'));an('aco',gAc,.0,oy+4.1,
 G.scale.setScalar(1.5);G.position.set(0,BASE+(trip?1.6:0),0);
 finish(G);
 const H=((trip?oy+4.2:3.6)*1.5);
-return{G,pm,anc,gl:GL,kind:k,H:H+BASE,Hx:H+BASE+(trip?4:2.5),st:[],bs:[],n:1,r:1,setOpen:kk=>fns.forEach(f=>f(kk)),engs:[],legs:[],fins:[],flow:{ox:[],fu:[]},Dg:2}}
+return{G,pm,anc,gl:GL,kind:k,H:H+BASE,Hx:H+BASE+(trip?4:2.5),st:[],bs:[],n:1,r:1,setOpen:kk=>fns.forEach(f=>f(kk)),engs:[],legs:[],fins:[],flow:{ox:[],fu:[]},Dg:2,anim:A}}
 
 // ---------- cenário: pedestal com mesa giratória, exposição e oficina ----------
 R.shadowMap.enabled=true;R.shadowMap.type=T.PCFSoftShadowMap;
@@ -614,7 +617,7 @@ rN(4,a=>{const[x,z]=polar(a,5.9),b=bo(.5,.5,.5,RM.gp,x,.95,z);b.rotation.y=-a;g.
 // mastros de iluminação com refletores
 [[-9,-9],[9,-9],[-10,9]].forEach(([x,z])=>{const m=new T.Group();m.position.set(x,0,z);m.add(cy(.14,.2,13,RM.st,0,6.5,0,8),bo(1.1,.4,.2,RM.gp,0,13.2,0),bo(.9,.26,.04,new T.MeshBasicMaterial({color:0xfff2d0}),0,13.2,.12));m.rotation.y=Math.atan2(-x,-z)+Math.PI;g.add(m)})}
 // torre de serviço com treliça e farol
-{const t=new T.Group(),H=22;t.position.set(-9.5,0,-4);S2.add(t);
+{const t=new T.Group(),H=22;t.position.set(-9.5,0,-4);S2.add(t);SC.tower=t;
 [[-.8,-.8],[.8,-.8],[-.8,.8],[.8,.8]].forEach(([a,b])=>t.add(cy(.1,.12,H,RM.gq,a,H/2,b,8)));
 for(let h=1.5;h<H;h+=2.4){t.add(bo(1.7,.07,.07,RM.st,0,h,-.8),bo(1.7,.07,.07,RM.st,0,h,.8),bo(.07,.07,1.7,RM.st,-.8,h,0),bo(.07,.07,1.7,RM.st,.8,h,0));
 const d=li(V3(-.8,h,-.8),V3(.8,h+2.4,-.8),.04,RM.st,4);t.add(d,li(V3(-.8,h,.8),V3(.8,h+2.4,.8),.04,RM.st,4))}
@@ -655,6 +658,14 @@ w.add(bo(1.3,1.3,1.3,RM.wd,-3.6,.65,2.0),bo(1.2,1.2,1.2,RM.wd,-2.3,.6,2.3),bo(.9
 [[-3.2,5.7,RM.st],[-2.0,5.4,RM.ye],[-.8,5.6,RM.rd],[.4,5.3,RM.st],[1.6,5.55,RM.ye]].forEach(([x,y,m])=>w.add(bo(.14,1.1,.1,m,x,y,-1.55)));w.add(bo(3.6,.05,.07,RM.st,-1.3,6.08,-1.55));
 const sg=lb2('OFICINA\nPeças e motores',3.6,1.1,'#0a1630','#ffd27a',42);sg.position.set(.6,8.9,-1.0);w.add(sg)}
 function sceneAnim(t,dt){if(SC.beac)SC.beac.material.color.setHex(Math.sin(t/300)>0?0xff2a2a:0x441111);SC.ex.forEach((g,i)=>g.rotation.y+=dt*.25);if(SC.crane)SC.crane.rotation.y+=dt*.35}
+// régua de altura ao lado do foguete (escala do modelo)
+{const g=new T.Group();g.position.set(-3.6,BASE,4.6);g.add(bo(.06,30,.06,RM.st,0,15,0));for(let i=0;i<=15;i++){const big=i%5==0;g.add(bo(big?.55:.3,.04,.04,RM.gd,big?.27:.15,i*2,0))}
+[0,10,20,30].forEach(m=>{const p=lb2(m+' m',1.5,.6,'#0a1630','#ffd27a',50);p.position.set(1.3,m,0);p.rotation.y=Math.PI/4;g.add(p)});S2.add(g);SC.ruler=g}
+// fumaça de vapor na base durante o teste dos motores
+const PUF=[];{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'rgba(255,255,255,.9)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,64);const tx=new T.CanvasTexture(c);
+for(let i=0;i<36;i++){const s=new T.Sprite(new T.SpriteMaterial({map:tx,color:0xd8deea,transparent:true,opacity:0,depthWrite:false}));s.visible=false;s.userData.keep=1;S2.add(s);PUF.push({s,a:0,l:1,v:V3(0,0,0)})}}
+let puI=0;function puff(rad){const o=PUF[puI++%36],a=rnd()*TAU;o.a=0;o.l=2+rnd()*1.5;o.s.position.set(Math.cos(a)*rad,1.3,Math.sin(a)*rad);o.v.set(Math.cos(a)*(1.5+rnd()*2),.5+rnd()*.6,Math.sin(a)*(1.5+rnd()*2));o.s.visible=true}
+function puffUpd(dt){PUF.forEach(o=>{if(!o.s.visible)return;o.a+=dt;const k=o.a/o.l;if(k>=1){o.s.visible=false;return}o.s.position.addScaledVector(o.v,dt);const sc=1.5+k*5;o.s.scale.set(sc,sc,1);o.s.material.opacity=.45*(1-k)})}
 
 // ---------- dados didáticos ----------
 const PI={
@@ -729,6 +740,8 @@ const APR=[['Por que os foguetes conseguem sair da Terra?','Porque o empuxo dos 
 let rcfg={nose:'og',stages:2,payload:'sat',eng:3,size:'g',inst:{},reuse:false},RK,DISP,VG={},MSH=[],PLM=[],FLW=[],HLP=[];
 let rkind='lan',rtab='pc',rsel=null,vm='ext',labOn=true,spin=false,demo=false,mission='sat',inR=false;
 let exK=0,exT=0,opK=0,opT=0,lgK=0,lgT=0,needG=true,fr=0,dTime=0,exDirty=true;
+let iso=null,isoG=null,isoH=[],pAct={},sepK=0,sepT=0,payK=0,payT=0,plK=0,plT=0,scrT=0;
+const ISOREL={adaptador:['carga'],estagios:['estrutura'],tubulacao:['tanque_ox','tanque_comb'],bomba:['motores'],pressurizacao:['tanque_ox','tanque_comb']};
 const cutP=new T.Plane(new T.Vector3(-1,0,0),0),cutN=new T.Vector3(-1,0,0),EXTP=['coifa','estrutura','estagios','aletas','pernas','rcs','sol','aco','esc','cab','svc'];
 let PG={};try{PG=JSON.parse(localStorage.getItem('dfog')||'{}')}catch(e){}const savePG=()=>{try{localStorage.setItem('dfog',JSON.stringify(PG))}catch(e){}};
 const shortN=id=>PI[id][0].split(' (')[0].split(' e ')[0];
@@ -746,19 +759,21 @@ function showModel(){RK.G.visible=rkind=='lan';SC.clamps.visible=rkind=='lan';fo
 if(rkind!='lan'){if(!VG[rkind]){VG[rkind]=buildVeh(rkind);S2.add(VG[rkind].G)}VG[rkind].G.visible=true;DISP=VG[rkind]}else DISP=RK;
 if(rsel&&!DISP.pm[rsel])rsel=null;
 MSH=[];DISP.G.traverse(q=>{if(q.isMesh&&q.userData.m0)MSH.push(q)});
-DISP.setOpen(opK);setLand();exDirty=true;applyClip();retarget();mkLabels();hl()}
+if(iso&&!DISP.pm[iso])exitIso(true);collectLED();DISP.setOpen(opK,plK);setLand();exDirty=true;applyClip();retarget();mkLabels();hl()}
 function setLand(){if(rkind!='lan')return;RK.fins.forEach(h=>h.rotation.z=-lgK*1.5);RK.legs.forEach(h=>h.rotation.z=lgK*.8)}
-function applyEx(){const k0=sm01(exK);DISP.gl.forEach(g=>{const u=g.userData,dl=u.dl||0,k=sm01((exK-dl)/(1-dl));g.position.copy(u.p0).addScaledVector(u.ex,k)})}
+function applyEx(){const lan=rkind=='lan',so=lan?sepK*1.8*RK.r:0,nn=lan?RK.n-1:0;DISP.gl.forEach(g=>{const u=g.userData,dl=u.dl||0,k=sm01((exK-dl)/(1-dl));g.position.copy(u.p0).addScaledVector(u.ex,k);
+if(lan&&so){if(u.stage)g.position.y+=Math.round(u.ex.y/RK.Dg)*so;else if(u.sg===null)g.position.y+=nn*so}if(u.pay)g.position.y+=payK*2.4*RK.rl})}
 // ---------- visibilidade (raio-X, corte) ----------
 function applyClip(){MSH.forEach(q=>{q.material.clippingPlanes=vm=='cut'?[cutP]:[];q.material.needsUpdate=true})}
-function retarget(){const sel=rsel,sx=sel&&!EXTP.includes(sel);MSH.forEach(q=>{const p=q.userData.part,sk=q.userData.skin;let f=1;
-if(vm=='xray'){f=sk?(sel?.05:.1):1;if(sel&&p!=sel&&!sk)f=.16}
+function retarget(){const sel=rsel,sx=sel&&!EXTP.includes(sel),rel=iso&&ISOREL[iso]||[];MSH.forEach(q=>{const p=q.userData.part,sk=q.userData.skin;let f=1;
+if(iso)f=q.userData.io?1:q.userData.ir?.22:0;
+else if(vm=='xray'){f=sk?(sel?.05:.1):1;if(sel&&p!=sel&&!sk)f=.16}
 else if(vm=='cut'){if(sel&&p!=sel)f=.4}
 else if(sel&&sx){f=sk?.12:(p==sel?1:.5)}
 q.userData.ft=f});needG=true}
 function ghost(dt){if(!needG)return;let mv_=false;const k=Math.min(1,dt*9);MSH.forEach(q=>{const u=q.userData;if(u.f==u.ft)return;u.f+=(u.ft-u.f)*k;if(Math.abs(u.ft-u.f)<.01)u.f=u.ft;else mv_=true;const m=q.material,f=u.f;m.opacity=u.m0.o*f;m.transparent=f<.995||u.m0.t;m.depthWrite=f<.995?false:u.m0.w;q.visible=f>.02});needG=mv_}
 function hl(){HLP.forEach(q=>{const m=q.material;if(q.userData.e0){m.emissive.setHex(q.userData.e0[0]);m.emissiveIntensity=q.userData.e0[1]}});HLP=[];
-if(!rsel||!DISP.pm[rsel])return;DISP.pm[rsel].forEach(q=>{const m=q.material;if(!m.emissive)return;if(!q.userData.e0)q.userData.e0=[m.emissive.getHex(),m.emissiveIntensity];HLP.push(q)})}
+if(iso||!rsel||!DISP.pm[rsel])return;DISP.pm[rsel].forEach(q=>{const m=q.material;if(!m.emissive)return;if(!q.userData.e0)q.userData.e0=[m.emissive.getHex(),m.emissiveIntensity];HLP.push(q)})}
 function hlPulse(t){if(!HLP.length)return;const v=.55+.4*Math.sin(t/260);HLP.forEach(q=>{q.material.emissive.setHex(0x2f7bff);q.material.emissiveIntensity=v})}
 function cutUpd(){const th=Math.atan2(cam.position.z,cam.position.x)+.5;cutN.set(-Math.cos(th),0,-Math.sin(th));cutP.normal.lerp(cutN,.25).normalize();cutP.constant=0}
 // ---------- câmera ----------
@@ -779,23 +794,63 @@ function mkLabels(){labEl.querySelectorAll('.rl').forEach(e=>e.remove());lsv.inn
 const ln=document.createElementNS(NS,'line'),dt=document.createElementNS(NS,'circle');dt.setAttribute('r',3.5);lsv.append(ln,dt);return{id,b,ln,dt,w:shortN(id).length*6.8+20}})}
 const tv=new T.Vector3();
 function labUpd(){const on=inR&&labOn&&cur==S2;labEl.hidden=!on;if(!on)return;const W=cv.clientWidth,Hh=cv.clientHeight;tv.set(0,BASE+2,0);tv.project(cam);const cx=(tv.x*.5+.5)*W;
-const it=[];LB.forEach(l=>{const a=DISP.anc[l.id];if(!a){l.b.style.display='none';return}a.getWorldPosition(tv);tv.project(cam);const px=(tv.x*.5+.5)*W,py_=(-tv.y*.5+.5)*Hh,vis=tv.z<1&&tv.z>-1&&py_>8&&py_<Hh-8&&px>0&&px<W;l.b.style.display=vis?'':'none';l.ln.style.display=l.dt.style.display=vis?'':'none';if(!vis)return;l.x=(tv.x*.5+.5)*W;l.y=(-tv.y*.5+.5)*Hh;it.push(l)});
+const it=[];LB.forEach(l=>{const a=DISP.anc[l.id];if(!a||(iso&&l.id!=iso)){l.b.style.display=l.ln.style.display=l.dt.style.display='none';return}a.getWorldPosition(tv);tv.project(cam);const px=(tv.x*.5+.5)*W,py_=(-tv.y*.5+.5)*Hh,vis=tv.z<1&&tv.z>-1&&py_>8&&py_<Hh-8&&px>0&&px<W;l.b.style.display=vis?'':'none';l.ln.style.display=l.dt.style.display=vis?'':'none';if(!vis)return;l.x=(tv.x*.5+.5)*W;l.y=(-tv.y*.5+.5)*Hh;it.push(l)});
 const L=it.filter(l=>l.x<cx).sort((a,b)=>a.y-b.y),Rr=it.filter(l=>l.x>=cx).sort((a,b)=>a.y-b.y);
 const lay=(arr,left)=>{if(!arr.length)return;let ex=left?Math.min(...arr.map(l=>l.x))-46:Math.max(...arr.map(l=>l.x))+46,py=-99;arr.forEach(l=>{l.ly=Math.max(l.y,py+25);py=l.ly});let by=Hh-14;for(let i=arr.length-1;i>=0;i--){if(arr[i].ly>by)arr[i].ly=by;by=arr[i].ly-25}
 arr.forEach(l=>{const x=left?Math.max(l.w+6,ex):Math.min(W-l.w-6,ex);l.b.style.transform=`translate(${left?x-l.w:x}px,${l.ly-11}px)`;l.b.classList.toggle('on',l.id==rsel);l.ln.setAttribute('x1',l.x);l.ln.setAttribute('y1',l.y);l.ln.setAttribute('x2',x);l.ln.setAttribute('y2',l.ly);l.dt.setAttribute('cx',l.x);l.dt.setAttribute('cy',l.y)})};
 lay(L,true);lay(Rr,false)}
+// ---------- animações por peça ----------
+const FXD={coifa:['Abrir e fechar a coifa','op'],par:['Abrir o paraquedas','op'],sol:['Estender os painéis','op'],aletas:['Abrir e fechar as aletas','lg'],pernas:['Abrir e fechar as pernas','lg'],carga:['Desdobrar a carga útil','pl'],adaptador:['Soltar a carga útil','pay'],estagios:['Separar os estágios','sep'],
+motores:['Ligar os motores','a'],bomba:['Girar a turbobomba','a'],tubulacao:['Mostrar o fluxo de propelente','a'],tanque_ox:['Esvaziar e encher o tanque','a'],tanque_comb:['Esvaziar e encher o tanque','a'],pressurizacao:['Pulsar a pressurização','a'],navegacao:['Acelerar os giroscópios','a'],rcs:['Disparar os propulsores','a'],esc:['Aquecer na reentrada','a'],ctl:['Ligar as telas','a']};
+const hasFx=id=>!!(id&&FXD[id]&&DISP&&DISP.pm[id]);
+const fxOn=id=>{const t=FXD[id]&&FXD[id][1];return t=='op'?!!opT:t=='lg'?!!lgT:t=='pl'?!!plT:t=='pay'?!!payT:t=='sep'?!!sepT:!!pAct[id]};
+function fxToggle(id){const d=FXD[id];if(!d)return;const t=d[1];if(t=='op')opT=opT?0:1;else if(t=='lg')lgT=lgT?0:1;else if(t=='pl')plT=plT?0:1;else if(t=='pay'){payT=payT?0:1;opT=payT}else if(t=='sep')sepT=sepT?0:1;else pAct[id]=!pAct[id];rbar();rpr()}
+let LED=[],escOn=false;
+function collectLED(){LED=[];DISP.G.traverse(q=>{if(!q.isMesh||!q.userData.m0)return;const m=q.material;if(!m.color||m.emissive||m.map||m.transparent)return;const h=m.color.getHex();if(h==0x33ff88||h==0xffc040||h==0xff4a3a){const r=(h>>16&255)*.15|0,g=(h>>8&255)*.15|0,b=(h&255)*.15|0;LED.push({m,on:h,off:r<<16|g<<8|b})}})}
+function drawScr(m,t,on){const c=m.material.map.image,g=c.getContext('2d'),w=c.width,h=c.height;if(!on&&!m.userData.on)return;m.userData.on=on;g.fillStyle='#06203a';g.fillRect(0,0,w,h);g.strokeStyle='#6cf0ff';g.lineWidth=4;g.strokeRect(6,6,w-12,h-12);g.fillStyle='#6cf0ff';g.textBaseline='middle';
+if(!on){g.font='bold 34px Georgia,serif';g.textAlign='center';g.fillText(m.userData.txt,w/2,h/2)}
+else{g.font='bold 30px Georgia,serif';g.textAlign='left';g.fillText(m.userData.txt,20,32);const n=9,bw=(w-40)/n;for(let i=0;i<n;i++){const v=.15+.8*Math.abs(Math.sin(t*1.7+i*.9));g.fillStyle=i%3==2?'#ffc040':'#6cf0ff';g.fillRect(20+i*bw,h-18-v*(h-80),bw-8,v*(h-80))}}
+m.material.map.needsUpdate=true}
+// ---------- peça sozinha ----------
+const stageOf=o=>{while(o){if(o.userData&&o.userData.stage)return o;o=o.parent}return null};
+function enterIso(id){if(!DISP.pm[id])return;iso=id;DISP.G.updateMatrixWorld(true);const sg0=DISP.anc[id]?stageOf(DISP.anc[id]):null,rel=ISOREL[id]||[];
+MSH.forEach(q=>{const u=q.userData,same=stageOf(q)===sg0;u.io=u.part==id&&same;u.ir=rel.includes(u.part)&&same});
+const b=new T.Box3(),t=new T.Box3();MSH.forEach(q=>{if(q.userData.io){t.setFromObject(q);b.union(t)}});
+const c=b.getCenter(new T.Vector3()),sz=b.getSize(new T.Vector3()),rad=Math.max(sz.x,sz.z)*.5,big=Math.max(sz.x,sz.y,sz.z);
+if(!isoG){isoG=new T.Group();isoG.add(cy(1,1,.1,RM.gq,0,0,0,64),to(1,.04,RM.em,0,.06,0,64));isoG.userData.keep=1;S2.add(isoG)}
+const rr=Math.max(.9,rad*1.15+.35);isoG.visible=true;isoG.scale.set(rr,1,rr);isoG.position.set(c.x,b.min.y-.1,c.z);
+if(!isoH.length)S2.children.forEach(o=>{if(o.userData.keep||o===DISP.G||o===RK.G||o.visible===false||/Light/.test(o.type||o.constructor.name))return;if(Object.values(VG).some(v=>v.G===o))return;o.visible=false;isoH.push(o)});
+ctl.autoRotate=true;ctl.autoRotateSpeed=2.2;
+retarget();hl();rbar();rpr();goCam(c,Math.max(4.2,big*1.2+1.6),.28)}
+function exitIso(q){iso=null;if(isoG)isoG.visible=false;isoH.forEach(o=>o.visible=true);isoH=[];ctl.autoRotate=false;pAct={};sepT=payT=plT=0;if(!q){retarget();hl();rbar();rpr();frameCam('all')}}
 // ---------- laço de animação ----------
 function rk(t,dt){if(!inR)return;fr++;dTime+=dt;sceneAnim(t,dt);
 if(exK!=exT){exK+=Math.sign(exT-exK)*Math.min(Math.abs(exT-exK),dt*.8);exDirty=true}if(exDirty){applyEx();exDirty=false}
-if(opK!=opT){opK+=Math.sign(opT-opK)*Math.min(Math.abs(opT-opK),dt*.45);DISP.setOpen(opK)}
+if(opK!=opT){opK+=Math.sign(opT-opK)*Math.min(Math.abs(opT-opK),dt*.45);DISP.setOpen(opK,plK)}
+if(plK!=plT){plK+=Math.sign(plT-plK)*Math.min(Math.abs(plT-plK),dt*.5);DISP.setOpen(opK,plK)}
 if(lgK!=lgT){lgK+=Math.sign(lgT-lgK)*Math.min(Math.abs(lgT-lgK),dt*.6);setLand()}
+if(sepK!=sepT){sepK+=Math.sign(sepT-sepK)*Math.min(Math.abs(sepT-sepK),dt*.55);exDirty=true}
+if(payK!=payT){payK+=Math.sign(payT-payK)*Math.min(Math.abs(payT-payK),dt*.5);exDirty=true}
 if(spin&&cur==S2){DISP.G.rotation.y+=dt*.45;SC.turn.rotation.y=DISP.G.rotation.y}
-if(vm=='cut')cutUpd();ghost(dt);hlPulse(t);
-// demonstração do funcionamento: gimbal, rotor, jato e fluxo de propelente
-const on=demo&&rkind=='lan';
-RK.engs.forEach((e,i)=>{if(on){e.swing.rotation.x=Math.sin(dTime*1.7+i)*.09;e.swing.rotation.z=Math.cos(dTime*1.3+i*1.7)*.09;e.rotor.rotation.y+=dt*16}else if(e.swing.rotation.x||e.swing.rotation.z){e.swing.rotation.x*=.85;e.swing.rotation.z*=.85;if(Math.abs(e.swing.rotation.x)+Math.abs(e.swing.rotation.z)<.002)e.swing.rotation.set(0,0,0)}});
-PLM.forEach(p=>{p.g.visible=on;if(on){const f=.9+Math.random()*.25;p.c1.scale.set(.9+Math.random()*.15,f,.9+Math.random()*.15);p.c2.scale.set(1,f*(.9+Math.random()*.2),1)}});
-const sh=on&&exK<.02;FLW.forEach(f=>{f.m.visible=sh;if(!sh)return;let u=((f.o+dTime*.35)%1)*f.L,i=0;while(i<f.seg.length-1&&u>f.seg[i]){u-=f.seg[i];i++}const k=Math.min(1,u/(f.seg[i]||1));f.m.position.copy(f.pts[i]).lerp(f.pts[i+1],k)});
+if(vm=='cut')cutUpd();ghost(dt);hlPulse(t);puffUpd(dt);
+// LEDs piscando (aviônicos, baterias, painéis)
+LED.forEach((l,i)=>l.m.color.setHex(((dTime*1.8+i*.37)%1)<.6?l.on:l.off));
+// animações das peças: motores, bomba, tubulações, tanques, giroscópios, propulsores...
+const lan=rkind=='lan',gim=lan&&(demo||pAct.motores),rot=lan&&(demo||pAct.bomba||pAct.motores),plu=lan&&(demo||pAct.motores),flo=lan&&(demo||pAct.tubulacao);
+if(lan){
+RK.engs.forEach((e,i)=>{if(gim){e.swing.rotation.x=Math.sin(dTime*1.7+i)*.09;e.swing.rotation.z=Math.cos(dTime*1.3+i*1.7)*.09}else if(e.swing.rotation.x||e.swing.rotation.z){e.swing.rotation.x*=.85;e.swing.rotation.z*=.85;if(Math.abs(e.swing.rotation.x)+Math.abs(e.swing.rotation.z)<.002)e.swing.rotation.set(0,0,0)}if(rot)e.rotor.rotation.y+=dt*16});
+PLM.forEach(p=>{p.g.visible=plu;if(plu){const f=.9+Math.random()*.25;p.c1.scale.set(.9+Math.random()*.15,f,.9+Math.random()*.15);p.c2.scale.set(1,f*(.9+Math.random()*.2),1)}});
+if(plu&&fr%4==0)puff(1.4);
+const sh=flo&&exK<.02;FLW.forEach(f=>{f.m.visible=sh;if(!sh)return;let u=((f.o+dTime*.35)%1)*f.L,i=0;while(i<f.seg.length-1&&u>f.seg[i]){u-=f.seg[i];i++}const k=Math.min(1,u/(f.seg[i]||1));f.m.position.copy(f.pts[i]).lerp(f.pts[i+1],k)});
+const A=RK.anim,fill=(arr,on)=>arr.forEach(f=>{const u=(dTime*.18)%2,tg=on?(u<1?1-u*.8:.2+(u-1)*.8):1;f.scale.y+=(tg-f.scale.y)*Math.min(1,dt*(on?10:3))});
+fill(A.fillOx,demo||pAct.tanque_ox);fill(A.fillFu,demo||pAct.tanque_comb);
+A.he.forEach((m,i)=>m.scale.setScalar(pAct.pressurizacao?1+.12*Math.sin(dTime*6+i*2):1));
+const ns=pAct.navegacao?3:.35;A.nav.forEach((r,i)=>{if(i%3==0)r.rotation.x=Math.PI/2+Math.sin(dTime*ns)*.9;else r.rotation.y+=dt*ns*(i%3==1?1:-.8)});
+A.rcs.forEach((m,i)=>{m.visible=!!pAct.rcs&&((dTime*7+i*.37)%1)<.45})}
+else{
+const A=DISP.anim;
+if(DISP.pm.esc){if(pAct.esc){escOn=true;DISP.pm.esc.forEach(q=>{if(q.material.emissive){q.material.emissive.setHex(0xff4a10);q.material.emissiveIntensity=.6+.4*Math.sin(dTime*5)}})}else if(escOn){escOn=false;DISP.pm.esc.forEach(q=>{if(q.material.emissive){q.material.emissive.setHex(0);q.material.emissiveIntensity=0}})}}
+if(fr%6==0)A.screens.forEach(m=>drawScr(m,dTime,!!pAct.ctl))}
 labUpd()}
 window.rk=rk;
 // ---------- interface ----------
@@ -806,9 +861,10 @@ function rbar(){const lan=rkind=='lan';rbEl.innerHTML=bt('back',null,'← Voltar
 `<span class="g"><span class="n">Visão</span>${[['ext','Externa'],['xray','Raio-X'],['cut','Corte']].map(([k,n])=>bt('vm',k,n,vm==k)).join('')}</span>`+
 `<span class="g">${bt('ex',null,'Explodir',exT)}${bt('lab',null,'Rótulos',labOn)}${bt('spin',null,'Girar',spin)}</span>`+
 `<span class="g">${bt('op',null,VK[rkind].open,opT)}${lan?bt('demo',null,'Funcionamento',demo):''}${lan&&rcfg.reuse?bt('lg',null,'Aletas e pernas',lgT):''}</span>`+
-`<span class="g"><span class="n">Câmera</span>${[['all','Geral'],['top','Topo'],['mid','Meio'],['base','Base'],['exp','Exposição'],['ofi','Oficina']].map(([k,n])=>bt('v',k,n)).join('')}</span>`}
+(rsel?`<span class="g">${bt('iso',null,iso?'← Voltar ao conjunto':'Ver peça sozinha',iso)}${hasFx(rsel)?bt('fx',rsel,FXD[rsel][0],fxOn(rsel)):''}</span>`:'')+
+(iso?'':`<span class="g"><span class="n">Câmera</span>${[['all','Geral'],['top','Topo'],['mid','Meio'],['base','Base'],['exp','Exposição'],['ofi','Oficina']].map(([k,n])=>bt('v',k,n)).join('')}</span>`)}
 const sel_=(a,v,o)=>`<select data-a="${a}">${o.map(([k,n])=>`<option value="${k}" ${k==v?'selected':''}>${n}</option>`).join('')}</select>`;
-const pinfo=id=>{const d=PI[id];return d?`<div class="card"><h2>${d[0]}</h2><h4>Localização</h4><p>${d[1]}</p><h4>Função</h4><p>${d[2]}</p><h4>Curiosidade</h4><p>${d[3]}</p></div>`:'<p class="n">Clique no modelo, em um rótulo ou escolha uma peça abaixo.</p>'};
+const pinfo=id=>{const d=PI[id];return d?`<div class="card"><h2>${d[0]}</h2><h4>Localização</h4><p>${d[1]}</p><h4>Função</h4><p>${d[2]}</p><h4>Curiosidade</h4><p>${d[3]}</p></div><p>${bt('iso',null,iso?'← Voltar ao conjunto':'Ver peça sozinha',iso)} ${hasFx(id)?bt('fx',id,FXD[id][0],fxOn(id)):''}</p>`:'<p class="n">Clique no modelo, em um rótulo ou escolha uma peça abaixo.</p>'};
 const chips=()=>{const have=new Set(partsOf());const gs=rkind=='lan'?GRP.lan:GRP[rkind];return gs.map(([n,a])=>{const l=a.filter(k=>have.has(k));return l.length?`<h4>${n}</h4><div id="chips">${l.map(k=>`<button data-a="sel" data-v="${k}" class="${rsel==k?'on':''}">${shortN(k)}</button>`).join('')}</div>`:''}).join('')};
 const kinds=()=>`<div class="tabs">${Object.keys(VK).map(k=>bt('kind',k,VK[k].n,rkind==k)).join('')}</div>`;
 const barp=(n,v,max,txt)=>`<div class="n" style="margin-top:6px">${n}: <b style="color:#e4eeff">${txt}</b></div><div class="bar"><i style="width:${Math.min(100,v/max*100)}%"></i></div>`;
@@ -827,7 +883,7 @@ else if(x.lab)b='<p>Monte, no Laboratório, um foguete adequado à missão de sa
 else b=`<p>Coloque as etapas na ordem em que o propelente percorre o motor:</p><ol>${ordS.map((k,i)=>`<li>${ORD[k]} <button data-a="up" data-v="${i}">↑</button><button data-a="dn" data-v="${i}">↓</button></li>`).join('')}</ol><button data-a="chk" data-c="c4">Verificar</button>`;
 return`<div class="card"><b>${x.t}</b> <span class="n">${dn_?'Concluído':'Pendente'}</span>${b}${f?`<p><b>${f.ok?'Correto.':'Ainda não.'}</b> ${f.m}</p>`:''}</div>`}).join('');
 rpEl.innerHTML=tb+h}
-function selPart(id,fly){rsel=id;if(id&&vm=='ext'&&!EXTP.includes(id)){vm='xray';applyClip()}if(rtab!='pc'&&rtab!='fn')rtab='pc';retarget();hl();rbar();rpr();if(fly&&id)focus(id)}
+function selPart(id,fly){if(id!=rsel){pAct={};sepT=payT=plT=0}rsel=id;if(iso){if(id)enterIso(id);else exitIso();return}if(id&&vm=='ext'&&!EXTP.includes(id)){vm='xray';applyClip()}if(rtab!='pc'&&rtab!='fn')rtab='pc';retarget();hl();rbar();rpr();if(fly&&id)focus(id)}
 function act(a,v,e){
 if(a=='back')return leave();
 if(a=='t'){rtab=v;rbar();rpr();return}
@@ -840,7 +896,9 @@ if(a=='demo'){demo=!demo;if(demo&&vm=='ext'){vm='xray';applyClip();retarget()}rb
 if(a=='lg'){lgT=lgT?0:1;rbar();rpr();if(lgT)frameCam('mid');return}
 if(a=='v')return frameCam(v);
 if(a=='sel')return selPart(v,!e||!e.dataset.nf);
-if(a=='kind'){rkind=v;rsel=null;opK=opT=exK=exT=0;demo=false;DISP&&DISP.gl.forEach(g=>g.position.copy(g.userData.p0));showModel();rbar();rpr();frameCam('all');return}
+if(a=='iso'){if(iso)exitIso();else if(rsel)enterIso(rsel);return}
+if(a=='fx')return fxToggle(v);
+if(a=='kind'){exitIso(true);rkind=v;rsel=null;opK=opT=exK=exT=0;demo=false;DISP&&DISP.gl.forEach(g=>g.position.copy(g.userData.p0));showModel();rbar();rpr();frameCam('all');return}
 if(a=='ms'){mission=v;rpr();return}
 if(a=='reuse'){rcfg.reuse=v;lgK=lgT=0;mkRK();if(rsel&&!DISP.pm[rsel])rsel=null;rbar();rpr();return}
 if(a in rcfg||a.startsWith('i_')){if(a.startsWith('i_'))rcfg.inst[a.slice(2)]=v;else rcfg[a]=(a=='stages'||a=='eng')?+v:v;mkRK();rbar();rpr();if(a=='stages'||a=='size')frameCam('all');return}
@@ -856,8 +914,8 @@ ctl.addEventListener('start',()=>{tw=false});
 // ---------- entrar e sair ----------
 function warp(t,s,fn){const w=$('#warp');w.innerHTML=`<div><h2>${t}</h2><p>${s}</p></div>`;w.hidden=false;setTimeout(fn,900);setTimeout(()=>w.hidden=true,2200)}
 function enter(){warp('Do telescópio ao foguete','Os telescópios mostram o Universo; para ir ainda mais longe, foi preciso aprender a construir foguetes. Bem-vindo ao Centro de Engenharia Espacial.',()=>{inR=true;cur=S2;mode=5;ta_.hidden=true;rpEl.hidden=false;$('#bar').hidden=true;rbEl.hidden=false;$('#modes').hidden=true;$('#goR').hidden=true;
-if(!RK)mkRK();rkind='lan';rtab='pc';rsel=null;vm='ext';exT=exK=opT=opK=lgT=lgK=0;demo=false;spin=false;showModel();rbar();rpr();cam.position.set(30,16,38);ctl.target.set(0,BASE+RK.H*.5,0);frameCam('all')})}
-function leave(){warp('De volta ao observatório','O Universo continua à espera: agora você conhece os telescópios e os foguetes que nos levam até ele.',()=>{inR=false;demo=false;spin=false;labEl.hidden=true;cur=S;ta_.hidden=false;rpEl.hidden=true;$('#bar').hidden=false;rbEl.hidden=true;$('#modes').hidden=false;$('#goR').hidden=false;setMode(1)})}
+if(!RK)mkRK();exitIso(true);rkind='lan';rtab='pc';rsel=null;vm='ext';exT=exK=opT=opK=lgT=lgK=0;demo=false;spin=false;showModel();rbar();rpr();cam.position.set(30,16,38);ctl.target.set(0,BASE+RK.H*.5,0);frameCam('all')})}
+function leave(){warp('De volta ao observatório','O Universo continua à espera: agora você conhece os telescópios e os foguetes que nos levam até ele.',()=>{exitIso(true);inR=false;demo=false;spin=false;labEl.hidden=true;cur=S;ta_.hidden=false;rpEl.hidden=true;$('#bar').hidden=false;rbEl.hidden=true;$('#modes').hidden=false;$('#goR').hidden=false;setMode(1)})}
 $('#goR').onclick=enter;
 
 })();
